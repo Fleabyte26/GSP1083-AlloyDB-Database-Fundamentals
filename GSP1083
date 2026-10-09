@@ -1,1 +1,78 @@
+# GSP1083 – AlloyDB - Database Fundamentals
+
+Paste each block into Cloud Shell. Use the copy button.
+
+## 1. Setup
+
+Replace us-east4 with the Region shown in your lab instructions.
+
+```bash
+
+echo us-east4 > ~/region
+gcloud compute instances list --filter="name=alloydb-client" --format="value(zone.basename())" > ~/clientzone
+gcloud compute instances add-metadata alloydb-client --zone=`cat ~/clientzone` --metadata=enable-oslogin=FALSE
+cat ~/region ~/clientzone
+
+```
+
+## 2. Task 1: create a cluster and instance
+
+Takes 10–15 min. Let it run.
+
+```bash
+
+gcloud alloydb clusters create lab-cluster --password=Change3Me --network=peering-network --region=`cat ~/region`
+gcloud alloydb instances create lab-instance --cluster=lab-cluster --region=`cat ~/region` --instance-type=PRIMARY --cpu-count=2 --availability-type=REGIONAL
+gcloud alloydb instances describe lab-instance --cluster=lab-cluster --region=`cat ~/region` --format="value(ipAddress)" > ~/alloydb
+cat ~/alloydb
+
+```
+
+Check my progress: Create a cluster and instance
+
+## 3. Task 2: create tables and load data
+
+```bash
+
+cat > ~/regions.sql <<'EOF'
+CREATE TABLE regions (region_id bigint NOT NULL, region_name varchar(25));
+ALTER TABLE regions ADD PRIMARY KEY (region_id);
+INSERT INTO regions VALUES (1, 'Europe');
+INSERT INTO regions VALUES (2, 'Americas');
+INSERT INTO regions VALUES (3, 'Asia');
+INSERT INTO regions VALUES (4, 'Middle East and Africa');
+EOF
+for i in 1 2 3 4 5 6; do gcloud compute scp ~/regions.sql alloydb-client:~ --zone=`cat ~/clientzone` --quiet && break; sleep 20; done
+gcloud compute ssh alloydb-client --zone=`cat ~/clientzone` --quiet --command="echo `cat ~/alloydb` > alloydbip.txt; sudo find /home -mindepth 1 -maxdepth 1 -type d -exec sudo cp alloydbip.txt {} \; ; gcloud storage cp gs://spls/gsp1083/hrm_load.sql hrm_load.sql; PGPASSWORD=Change3Me psql -h `cat ~/alloydb` -U postgres -f regions.sql -f hrm_load.sql -c '\dt'"
+
+```
+
+Expect countries, departments, jobs, regions.
+
+Check my progress: Create and load a table
+
+## 4. Task 3: cluster and instance with the CLI
+
+Takes 10–15 min. Let it run.
+
+```bash
+
+gcloud alloydb clusters create gcloud-lab-cluster --password=Change3Me --network=peering-network --region=`cat ~/region`
+gcloud alloydb instances create gcloud-lab-instance --cluster=gcloud-lab-cluster --region=`cat ~/region` --instance-type=PRIMARY --cpu-count=2
+gcloud alloydb clusters list
+
+```
+
+Check my progress: Create a cluster and instance with CLI
+
+## 5. Task 4: delete the cluster
+
+```bash
+
+gcloud alloydb clusters delete gcloud-lab-cluster --force --region=`cat ~/region` --quiet
+gcloud alloydb clusters list
+
+```
+
+Only lab-cluster should remain.
 
